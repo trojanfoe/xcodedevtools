@@ -11,7 +11,7 @@ Usage: copy_dylibs.py
   @rpath@.
 - All libraries are code-signed, if $CODE_SIGN_IDENTITY is set.
 
-Copyright ©2019 Andy Duplain <trojanfoe@gmail.com>
+Copyright (c)2019 Andy Duplain <trojanfoe@gmail.com>
 
 """
 

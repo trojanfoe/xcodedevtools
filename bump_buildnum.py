@@ -4,7 +4,7 @@
 #
 # usage: bump_buildnum.py buildnum.ver Info.plist [ ... Info.plist ]
 #
-# Copyright ©2019 Andy Duplain <trojanfoe@gmail.com>
+# Copyright (c)2019 Andy Duplain <trojanfoe@gmail.com>
 #
 
 import sys, os, subprocess, re
