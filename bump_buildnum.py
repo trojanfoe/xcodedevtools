@@ -4,7 +4,7 @@
 #
 # usage: bump_buildnum.py buildnum.ver Info.plist [ ... Info.plist ]
 #
-# andy@trojanfoe.com, 2014.
+# Copyright ©2019 Andy Duplain <trojanfoe@gmail.com>
 #
 
 import sys, os, subprocess, re
@@ -57,7 +57,7 @@ def should_bump(vername, dirname):
     for dirname, dirnames, filenames in os.walk(dirname):
         for filename in filenames:
             allnames.append(os.path.join(dirname, filename))
-    
+
     for filename in allnames:
         filestat = os.stat(filename)
         if filestat.st_mtime > verstat.st_mtime:
@@ -65,7 +65,7 @@ def should_bump(vername, dirname):
             return True
 
     return False
-        
+
 def upver(vername):
     (version, build) = read_verfile(vername)
     if version == None or build == None:
@@ -96,14 +96,13 @@ if __name__ == "__main__":
         print("Usage: {0} buildnum.ver Info.plist [... Info.plist]".format(sys.argv[0]))
         sys.exit(1)
     vername = sys.argv[1]
-        
+
     (version, build) = upver(vername)
     if version == None or build == None:
         sys.exit(2)
 
     for i in range(2, len(sys.argv)):
         plistname = sys.argv[i]
-        set_plist_version(plistname, version, build)        
+        set_plist_version(plistname, version, build)
 
     sys.exit(0)
-
