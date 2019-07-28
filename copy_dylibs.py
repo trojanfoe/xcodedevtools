@@ -2,14 +2,13 @@
 
 """Copy dylibs into the build folder.
 
-Usage: copy_dylibs.py
+Usage: copy_dylibs.py [dylib ... dylib]
 
-- Searches the target executable for dylibs to copy.
-- Any dependent dylibs that reside in /usr/local/lib or /opt/local/lib are copied into
-  $TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH.
-- All 'install name' values are adjusted so libraries are found within the app bundle, relative to
-  @rpath@.
-- All libraries are code-signed, if $CODE_SIGN_IDENTITY is set.
+- Examine the main executable for dylibs to copy into the app bundle frameworks folder.  This is recursive.
+- If additional dylibs are specified on the command line, they are also copied into frameworks folder.
+- Only libraries that reside in /usr/local, /opt/local or /User are copied, as it's expected all the others
+  are standard system libraries that will be available on the enduser system.
+- All 'install name' values are adjusted so libraries are found within the app bundle, relative to @rpath@.
 
 Copyright (c)2019 Andy Duplain <trojanfoe@gmail.com>
 
@@ -59,7 +58,7 @@ def copy_dependencies(file):
 		if m:
 			dep = m.group(1)
 			(dep_path, dep_filename) = os.path.split(dep)
-			if dep_path == '' or dep_path.startswith('/opt/local') or dep_path.startswith('/usr/local'):
+			if dep_path == '' or dep_path.startswith('/opt/local/') or dep_path.startswith('/usr/local/') or dep.startswith('/User/'):
 				dest = os.path.join(frameworks_dir, dep_filename)
 
 				list = []
@@ -91,18 +90,7 @@ def change_install_names():
 			if exitcode != 0:
 				raise RuntimeError("Failed to change '{0}' to '{1}' in '{2}".format(old_name, new_name, dylib))
 
-def codesign():
-	if not 'CODE_SIGN_IDENTITY' in os.environ:
-		print "Not code-signing as $CODE_SIGN_IDENTITY is not set"
-		return
-	for dylib in copied_dylibs:
-		cmdline = ['codesign', '--force', '--sign', os.environ['CODE_SIGN_IDENTITY'], dylib]
-		print "Running", " ".join(cmdline)
-		exitcode = subprocess.call(cmdline)
-		if exitcode != 0:
-			raise RuntimeError("Failed to codesign '{0}".format(dylib))
-
-def main():
+def main(args):
 	global frameworks_dir
 
 	# Only work during builds
@@ -115,11 +103,11 @@ def main():
 	# Set-up output directories within app bundle
 	build_dir = os.environ['TARGET_BUILD_DIR']
 	frameworks_path = os.environ['FRAMEWORKS_FOLDER_PATH']
-	executable_path = os.environ['EXECUTABLE_PATH']
+	frameworks_dir = os.path.join(build_dir, frameworks_path)
 
+	executable_path = os.environ['EXECUTABLE_PATH']
 	executable_file = os.path.join(build_dir, executable_path)
 
-	frameworks_dir = os.path.join(build_dir, frameworks_path)
 	if os.path.exists(frameworks_dir):
 		# Process existing .dylib files in Frameworks directory first as Xcode might have copied them and they might need attention
 		for file in os.listdir(frameworks_dir):
@@ -128,17 +116,20 @@ def main():
 	else:
 		os.makedirs(frameworks_dir)
 
+	# Copy additional dylibs
+	if len(args) > 1:
+		for arg in args[1:]:
+			copy_dylib(arg)
+
 	# Process main executable
 	copy_dependencies(executable_file)
 
 	change_install_names()
 
-	codesign()
-
 if __name__ == "__main__":
 	exitcode = 99
 	try:
-		exitcode = main()
+		exitcode = main(sys.argv)
 	except Exception as e:
 		print traceback.format_exc()
 	sys.exit(exitcode)
