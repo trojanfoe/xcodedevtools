@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 #
 # Bump build number in Info.plist files if a source file have changed.
 #
