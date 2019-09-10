@@ -88,7 +88,7 @@ def upver(vername):
     return (version, build)
 
 if __name__ == "__main__":
-    if os.environ.has_key('ACTION') and os.environ['ACTION'] == 'clean':
+    if ('ACTION' in os.environ) and os.environ['ACTION'] == 'clean':
         print("{0}: Not running while cleaning".format(sys.argv[0]))
         sys.exit(0)
 
