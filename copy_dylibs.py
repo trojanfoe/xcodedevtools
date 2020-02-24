@@ -85,7 +85,7 @@ def change_install_names():
 				cmdline = ['install_name_tool', '-id', new_name, dylib]
 			else:
 				cmdline = ['install_name_tool', '-change', old_name, new_name, dylib]
-			print("Running", " ".join(cmdline))
+			print("Running: " + " ".join(cmdline))
 			exitcode = subprocess.call(cmdline)
 			if exitcode != 0:
 				raise RuntimeError("Failed to change '{0}' to '{1}' in '{2}".format(old_name, new_name, dylib))
