@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+from __future__ import print_function
 
 """Copy dylibs into the build folder.
 
@@ -14,8 +15,7 @@ Copyright (c)2019 Andy Duplain <trojanfoe@gmail.com>
 
 """
 
-import sys, os, imp, traceback, shutil, subprocess, re
-from sets import Set
+import sys, os, traceback, shutil, subprocess, re
 
 frameworks_dir = None
 
@@ -27,7 +27,7 @@ frameworks_dir = None
 install_names = {}
 
 # List of dylibs copied
-copied_dylibs = Set()
+copied_dylibs = set()
 
 def copy_dylib(src):
 	global copied_dylibs
@@ -37,20 +37,20 @@ def copy_dylib(src):
 
 	if not os.path.exists(dest):
 		shutil.copyfile(src, dest)
-		os.chmod(dest, 0644)
+		os.chmod(dest, 0o644)
 		copy_dependencies(dest)
 		copied_dylibs.add(dest)
 	else:
-		print "'{0}' already exists, so not copying".format(dylib_filename)
+		print("'{0}' already exists, so not copying".format(dylib_filename))
 
 def copy_dependencies(file):
 	global install_names
 
 	(file_path, file_filename) = os.path.split(file)
-	print "Examining '{0}'".format(file_filename)
+	print("Examining '{0}'".format(file_filename))
 	pipe = subprocess.Popen(['otool', '-L', file], stdout=subprocess.PIPE)
 	while True:
-		line = pipe.stdout.readline()
+		line = pipe.stdout.readline().decode("utf-8")
 		if line == '':
 			break
 		# 	/opt/local/lib/libz.1.dylib (compatibility version 1.0.0, current version 1.2.8)
@@ -85,7 +85,7 @@ def change_install_names():
 				cmdline = ['install_name_tool', '-id', new_name, dylib]
 			else:
 				cmdline = ['install_name_tool', '-change', old_name, new_name, dylib]
-			print "Running", " ".join(cmdline)
+			print("Running: " + " ".join(cmdline))
 			exitcode = subprocess.call(cmdline)
 			if exitcode != 0:
 				raise RuntimeError("Failed to change '{0}' to '{1}' in '{2}".format(old_name, new_name, dylib))
@@ -131,5 +131,5 @@ if __name__ == "__main__":
 	try:
 		exitcode = main(sys.argv)
 	except Exception as e:
-		print traceback.format_exc()
+		print(traceback.format_exc())
 	sys.exit(exitcode)
