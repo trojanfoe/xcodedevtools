@@ -5,17 +5,19 @@ from __future__ import print_function
 
 Usage: copy_dylibs.py [dylib ... dylib]
 
-- Examine the main executable for dylibs to copy into the app bundle frameworks folder.  This is recursive.
-- If additional dylibs are specified on the command line, they are also copied into frameworks folder.
-- Only libraries that reside in /usr/local, /opt/local or /User are copied, as it's expected all the others
-  are standard system libraries that will be available on the enduser system.
-- All 'install name' values are adjusted so libraries are found within the app bundle, relative to @rpath@.
+If additional dylibs are specified on the command line, they will be copied into the app bundle.
 
-Copyright (c)2019 Andy Duplain <trojanfoe@gmail.com>
+Copyright (c)2019,2021 Andy Duplain <trojanfoe@gmail.com>
 
 """
 
 import sys, os, traceback, shutil, subprocess, re
+
+# Any dependencies outside of these directories needs copying and fixing
+good_dirs = [ '/System/', '/usr/lib/', '@rpath/' ]
+
+# Turn on for more output
+debug = False
 
 frameworks_dir = None
 
@@ -29,6 +31,12 @@ install_names = {}
 # List of dylibs copied
 copied_dylibs = set()
 
+def is_file_good(file):
+	for dir in good_dirs:
+		if file.startswith(dir):
+			return True
+	return False
+
 def copy_dylib(src):
 	global copied_dylibs
 
@@ -36,18 +44,19 @@ def copy_dylib(src):
 	dest = os.path.join(frameworks_dir, dylib_filename)
 
 	if not os.path.exists(dest):
+		if debug:
+			print("Copying {0} into bundle".format(src))
 		shutil.copyfile(src, dest)
 		os.chmod(dest, 0o644)
-		copy_dependencies(dest)
 		copied_dylibs.add(dest)
-	else:
-		print("'{0}' already exists, so not copying".format(dylib_filename))
+		copy_dependencies(dest)
 
 def copy_dependencies(file):
 	global install_names
 
 	(file_path, file_filename) = os.path.split(file)
-	print("Examining '{0}'".format(file_filename))
+	print("Examining {0}".format(file_filename))
+	found = 0
 	pipe = subprocess.Popen(['otool', '-L', file], stdout=subprocess.PIPE)
 	while True:
 		line = pipe.stdout.readline().decode("utf-8")
@@ -57,9 +66,13 @@ def copy_dependencies(file):
 		m = re.match(r'\s*(\S+)\s*\(compatibility version .+\)$', line)
 		if m:
 			dep = m.group(1)
-			(dep_path, dep_filename) = os.path.split(dep)
-			if dep_path == '' or dep_path.startswith('/opt/local/') or dep_path.startswith('/usr/local/') or dep.startswith('/User/'):
+			if not is_file_good(dep):
+				(dep_path, dep_filename) = os.path.split(dep)
 				dest = os.path.join(frameworks_dir, dep_filename)
+
+				if dep_filename != file_filename:
+					print(" ...found external dependency {0}".format(dep))
+					found += 1
 
 				list = []
 				if file in install_names:
@@ -67,10 +80,10 @@ def copy_dependencies(file):
 				list.append([dep, '@rpath/' + dep_filename])
 				install_names[file] = list
 
-				if dep_path == '':
-					dep = os.path.join('/usr/local/lib', dep_filename)
-
 				copy_dylib(dep)
+
+	if found == 0:
+		print("... no external dependencies found")
 
 def change_install_names():
 	for dylib in install_names.keys():
@@ -79,13 +92,15 @@ def change_install_names():
 		for install_name in list:
 			old_name = install_name[0]
 			new_name = install_name[1]
-			#print dylib, "old=", old_name, "new=", new_name
+			if debug:
+				print("{0}: old={1} new={2}".format(dylib, old_name, new_name))
 			(old_name_path, old_name_filename) = os.path.split(old_name)
 			if dylib_filename == old_name_filename:
 				cmdline = ['install_name_tool', '-id', new_name, dylib]
 			else:
 				cmdline = ['install_name_tool', '-change', old_name, new_name, dylib]
-			print("Running: " + " ".join(cmdline))
+			if debug:
+				print("Running: " + " ".join(cmdline))
 			exitcode = subprocess.call(cmdline)
 			if exitcode != 0:
 				raise RuntimeError("Failed to change '{0}' to '{1}' in '{2}".format(old_name, new_name, dylib))
@@ -125,6 +140,17 @@ def main(args):
 	copy_dependencies(executable_file)
 
 	change_install_names()
+
+	if debug:
+		print("This is what your executable looks like now:")
+		pipe = subprocess.Popen(['otool', '-L', executable_file], stdout=subprocess.PIPE)
+		while True:
+			line = pipe.stdout.readline().decode("utf-8")
+			if line == '':
+				break
+			print(line, end='')
+
+	print("\nRemember to add '--deep' to your 'Other Code Signing Flags'")
 
 if __name__ == "__main__":
 	exitcode = 99
