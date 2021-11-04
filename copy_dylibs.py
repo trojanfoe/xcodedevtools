@@ -31,6 +31,14 @@ install_names = {}
 # List of dylibs copied
 copied_dylibs = set()
 
+def echo(message):
+	print(message)
+	sys.stdout.flush()
+
+def echon(message):
+	sys.stdout.write(message)
+	sys.stdout.flush()
+
 def is_file_good(file):
 	for dir in good_dirs:
 		if file.startswith(dir):
@@ -45,7 +53,7 @@ def copy_dylib(src):
 
 	if not os.path.exists(dest):
 		if debug:
-			print("Copying {0} into bundle".format(src))
+			echo("Copying {0} into bundle".format(src))
 		shutil.copyfile(src, dest)
 		os.chmod(dest, 0o644)
 		copied_dylibs.add(dest)
@@ -55,7 +63,7 @@ def copy_dependencies(file):
 	global install_names
 
 	(file_path, file_filename) = os.path.split(file)
-	print("Examining {0}".format(file_filename))
+	echo("Examining {0}".format(file_filename))
 	found = 0
 	pipe = subprocess.Popen(['otool', '-L', file], stdout=subprocess.PIPE)
 	while True:
@@ -71,7 +79,7 @@ def copy_dependencies(file):
 				dest = os.path.join(frameworks_dir, dep_filename)
 
 				if dep_filename != file_filename:
-					print(" ...found local dependency {0}".format(dep))
+					echo(" ...found {0}".format(dep))
 					found += 1
 
 				list = []
@@ -89,15 +97,14 @@ def change_install_names():
 		for install_name in list:
 			old_name = install_name[0]
 			new_name = install_name[1]
-			if debug:
-				print("{0}: old={1} new={2}".format(dylib, old_name, new_name))
+			#echo("{0}: old={1} new={2}".format(dylib, old_name, new_name))
 			(old_name_path, old_name_filename) = os.path.split(old_name)
 			if dylib_filename == old_name_filename:
 				cmdline = ['install_name_tool', '-id', new_name, dylib]
 			else:
 				cmdline = ['install_name_tool', '-change', old_name, new_name, dylib]
 			if debug:
-				print("Running: " + " ".join(cmdline))
+				echo("Running: " + " ".join(cmdline))
 			exitcode = subprocess.call(cmdline)
 			if exitcode != 0:
 				raise RuntimeError("Failed to change '{0}' to '{1}' in '{2}".format(old_name, new_name, dylib))
@@ -106,10 +113,10 @@ def codesign():
 	if os.environ['CODE_SIGNING_ALLOWED'] == 'YES':
 		code_sign_identity = os.environ['EXPANDED_CODE_SIGN_IDENTITY']
 		for dylib in copied_dylibs:
-			print("Codesigning {0}".format(os.path.basename(dylib)))
+			echo("Codesigning {0}".format(os.path.basename(dylib)))
 			cmdline = ['/usr/bin/codesign', '--force', '--sign', code_sign_identity, dylib]
 			if debug:
-				print("Running: " + " ".join(cmdline))
+				echo("Running: " + " ".join(cmdline))
 			exitcode = subprocess.call(cmdline)
 			if exitcode != 0:
 				raise RuntimeError("Failed to codesign '{0}'".format(dylib))
@@ -153,18 +160,18 @@ def main(args):
 	codesign()
 
 	if debug:
-		print("This is what your executable looks like now:")
+		echo("This is what your executable looks like now:")
 		pipe = subprocess.Popen(['otool', '-L', executable_file], stdout=subprocess.PIPE)
 		while True:
 			line = pipe.stdout.readline().decode("utf-8")
 			if line == '':
 				break
-			print(line, end='')
+			echon(line)
 
 if __name__ == "__main__":
 	exitcode = 99
 	try:
 		exitcode = main(sys.argv)
 	except Exception as e:
-		print(traceback.format_exc())
+		echo(traceback.format_exc())
 	sys.exit(exitcode)
