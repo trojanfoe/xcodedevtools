@@ -71,7 +71,7 @@ def copy_dependencies(file):
 				dest = os.path.join(frameworks_dir, dep_filename)
 
 				if dep_filename != file_filename:
-					print(" ...found external dependency {0}".format(dep))
+					print(" ...found local dependency {0}".format(dep))
 					found += 1
 
 				list = []
@@ -81,9 +81,6 @@ def copy_dependencies(file):
 				install_names[file] = list
 
 				copy_dylib(dep)
-
-	if found == 0:
-		print("... no external dependencies found")
 
 def change_install_names():
 	for dylib in install_names.keys():
@@ -104,6 +101,18 @@ def change_install_names():
 			exitcode = subprocess.call(cmdline)
 			if exitcode != 0:
 				raise RuntimeError("Failed to change '{0}' to '{1}' in '{2}".format(old_name, new_name, dylib))
+
+def codesign():
+	if os.environ['CODE_SIGNING_ALLOWED'] == 'YES':
+		code_sign_identity = os.environ['EXPANDED_CODE_SIGN_IDENTITY']
+		for dylib in copied_dylibs:
+			print("Codesigning {0}".format(os.path.basename(dylib)))
+			cmdline = ['/usr/bin/codesign', '--force', '--sign', code_sign_identity, dylib]
+			if debug:
+				print("Running: " + " ".join(cmdline))
+			exitcode = subprocess.call(cmdline)
+			if exitcode != 0:
+				raise RuntimeError("Failed to codesign '{0}'".format(dylib))
 
 def main(args):
 	global frameworks_dir
@@ -141,6 +150,8 @@ def main(args):
 
 	change_install_names()
 
+	codesign()
+
 	if debug:
 		print("This is what your executable looks like now:")
 		pipe = subprocess.Popen(['otool', '-L', executable_file], stdout=subprocess.PIPE)
@@ -149,8 +160,6 @@ def main(args):
 			if line == '':
 				break
 			print(line, end='')
-
-	print("\nRemember to add '--deep' to your 'Other Code Signing Flags'")
 
 if __name__ == "__main__":
 	exitcode = 99
