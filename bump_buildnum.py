@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+
 #
 # Bump build number in Info.plist files if a source file have changed.
 #
@@ -9,6 +10,7 @@ from __future__ import print_function
 #
 
 import sys, os, subprocess, re
+
 
 def read_verfile(name):
     version = None
@@ -24,6 +26,7 @@ def read_verfile(name):
     verfile.close()
     return (version, build)
 
+
 def write_verfile(name, version, build):
     verfile = open(name, "w")
     verfile.write("version {0}\n".format(version))
@@ -31,26 +34,32 @@ def write_verfile(name, version, build):
     verfile.close()
     return True
 
+
 def set_plist_version(plistname, version, build):
     if not os.path.exists(plistname):
         print("{0} does not exist".format(plistname))
         return False
 
-    plistbuddy = '/usr/libexec/Plistbuddy'
+    plistbuddy = "/usr/libexec/Plistbuddy"
     if not os.path.exists(plistbuddy):
         print("{0} does not exist".format(plistbuddy))
         return False
 
-    cmdline = [plistbuddy,
-        "-c", "Set CFBundleShortVersionString {0}".format(version),
-        "-c", "Set CFBundleVersion {0}".format(build),
-        plistname]
+    cmdline = [
+        plistbuddy,
+        "-c",
+        "Set CFBundleShortVersionString {0}".format(version),
+        "-c",
+        "Set CFBundleVersion {0}".format(build),
+        plistname,
+    ]
     if subprocess.call(cmdline) != 0:
         print("Failed to update {0}".format(plistname))
         return False
 
     print("Updated {0} with v{1} ({2})".format(plistname, version, build))
     return True
+
 
 def should_bump(vername, dirname):
     verstat = os.stat(vername)
@@ -66,6 +75,7 @@ def should_bump(vername, dirname):
             return True
 
     return False
+
 
 def upver(vername):
     (version, build) = read_verfile(vername)
@@ -88,8 +98,9 @@ def upver(vername):
 
     return (version, build)
 
+
 if __name__ == "__main__":
-    if ('ACTION' in os.environ) and os.environ['ACTION'] == 'clean':
+    if ("ACTION" in os.environ) and os.environ["ACTION"] == "clean":
         print("{0}: Not running while cleaning".format(sys.argv[0]))
         sys.exit(0)
 
