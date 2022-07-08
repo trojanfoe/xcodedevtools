@@ -150,6 +150,10 @@ def main(args):
         return 0
 
     # Set-up output directories within app bundle
+    if not "TARGET_BUILD_DIR" in os.environ:
+        print("This script is supposed to be run from within Xcode")
+        return 1
+
     build_dir = os.environ["TARGET_BUILD_DIR"]
     frameworks_path = os.environ["FRAMEWORKS_FOLDER_PATH"]
     frameworks_dir = os.path.join(build_dir, frameworks_path)
