@@ -13,7 +13,7 @@ Copyright (c)2019,2021 Andy Duplain <trojanfoe@gmail.com>
 
 import sys, os, traceback, shutil, subprocess, re
 
-# Any dependencies outside of these directories needs copying and fixing
+# Any dependencies outside of these directories need copying and fixing
 good_dirs = ["/System/", "/usr/lib/", "@rpath/"]
 
 # Turn on for more output
@@ -52,6 +52,9 @@ def is_file_good(file):
 def copy_dylib(src):
     global copied_dylibs
 
+    if src.startswith("@"):
+        return
+
     (dylib_path, dylib_filename) = os.path.split(src)
     dest = os.path.join(frameworks_dir, dylib_filename)
 
@@ -66,6 +69,9 @@ def copy_dylib(src):
 
 def copy_dependencies(file):
     global install_names
+
+    if file.startswith("@"):
+        return
 
     (file_path, file_filename) = os.path.split(file)
     echo("Examining {0}".format(file_filename))
@@ -142,18 +148,16 @@ def codesign():
 def main(args):
     global frameworks_dir
 
+    if not "ACTION" in os.environ or not "TARGET_BUILD_DIR" in os.environ:
+        print("This is an Xcode Build Phase script!")
+        return 1
+
     # Only work during builds
-    action = "build"
-    if "ACTION" in os.environ:
-        action = os.environ["ACTION"]
+    action = os.environ["ACTION"]
     if action != "build" and action != "install":
         return 0
 
     # Set-up output directories within app bundle
-    if not "TARGET_BUILD_DIR" in os.environ:
-        print("This script is supposed to be run from within Xcode")
-        return 1
-
     build_dir = os.environ["TARGET_BUILD_DIR"]
     frameworks_path = os.environ["FRAMEWORKS_FOLDER_PATH"]
     frameworks_dir = os.path.join(build_dir, frameworks_path)
