@@ -93,13 +93,13 @@ def copy_dependencies(file):
                     echo(" ...found {0}".format(dep))
                     found += 1
 
-                list = []
-                if file in install_names:
-                    list = install_names[file]
-                list.append([dep, "@rpath/" + dep_filename])
-                install_names[file] = list
+                    list = []
+                    if file in install_names:
+                        list = install_names[file]
+                    list.append([dep, "@rpath/" + dep_filename])
+                    install_names[file] = list
 
-                copy_dylib(dep)
+                    copy_dylib(dep)
 
 
 def change_install_names():

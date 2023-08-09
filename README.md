@@ -16,6 +16,49 @@ When a local library dependency is copied into the app bundle, its "install name
 Xcode will provide all the information the script needs, via environment variables, however additional local library dependencies can be specifed on the command line. This is useful for libraries that are loaded via `dlopen()` and therefore cannot be detected by the script.
 
 
+### Notes on fat binary dependencies
+`copy_dylibs.py` will fail on fat binary dependencies that have not had their _install name_ fixed when they were created.
+
+Here's an example:
+
+An external build system was used to create two libraries for use with the iOS Simulator, one arm64 and the other x86_64.  These were building into different output directories:
+
+```
+extlib/arm64/libfoo.dylib
+extlib/x86_64/libfoo.dylib
+```
+
+and `lipo` was used to create the fat binary:
+
+```
+$ lipo -create -output extlib/fat/libfoo.dylib extlib/arm64/libfoo.dylib extlib/x86_64/libfoo.dylib
+```
+
+When you examine this library you will see that the original install names are preserved in the fat binary:
+
+```
+$ otool -L extlib/fat/libfoo.dylib
+
+extlib/fat/libfoo.dylib (architecture x86_64):
+	extlib/x64_64/libfoo.dylib (compatibility version 0.0.0, current version 0.0.0)
+	...
+	system libraries
+	...
+extlib/fat/libfoo.dylib (architecture arm64):
+	extlib/arm64/libfoo.dylib (compatibility version 0.0.0, current version 0.0.0)
+	...
+	system libraries
+    ...
+```
+
+This will confuse `copy_dylibs.py` and it will end-up copying in one of the thin libraries into the Xcode build directory, overwriting the fat binary because it has the same name.
+
+The way to fix this is to use `install_name_tool` after `lipo`:
+
+```
+install_name_tool -id extlib/fat/libfoo.dylib extlib/fat/libfoo.dylib
+```
+
 ### Configuring
 In order to configure `copy_dylibs.py` into your Xcode project:
 
