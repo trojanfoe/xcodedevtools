@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 
 """Copy dylibs into the build folder.
@@ -17,7 +17,7 @@ import sys, os, traceback, shutil, subprocess, re
 good_dirs = ["/System/", "/usr/lib/", "@rpath/"]
 
 # Turn on for more output
-debug = False
+debug = True
 
 frameworks_dir = None
 
@@ -53,7 +53,7 @@ def copy_dylib(src):
     global copied_dylibs
 
     if src.startswith("@"):
-        return
+        return None
 
     (dylib_path, dylib_filename) = os.path.split(src)
     dest = os.path.join(frameworks_dir, dylib_filename)
@@ -65,7 +65,9 @@ def copy_dylib(src):
         os.chmod(dest, 0o644)
         copied_dylibs.add(dest)
         copy_dependencies(dest)
-
+        return dest
+    else:
+        return None
 
 def copy_dependencies(file):
     global install_names
@@ -87,19 +89,23 @@ def copy_dependencies(file):
             dep = m.group(1)
             if not is_file_good(dep):
                 (dep_path, dep_filename) = os.path.split(dep)
-                dest = os.path.join(frameworks_dir, dep_filename)
-
                 if dep_filename != file_filename:
                     echo(" ...found {0}".format(dep))
                     found += 1
+                    save_install_name(file, dep, "@rpath/" + dep_filename)
+                    dest = copy_dylib(dep)
+                    if dest is not None:
+                        save_install_name(dest, dep, "@rpath/" + dep_filename)
 
-                    list = []
-                    if file in install_names:
-                        list = install_names[file]
-                    list.append([dep, "@rpath/" + dep_filename])
-                    install_names[file] = list
 
-                    copy_dylib(dep)
+def save_install_name(file, old_name, new_name):
+    global install_names
+
+    list = []
+    if file in install_names:
+        list = install_names[file]
+    list.append([old_name, new_name])
+    install_names[file] = list
 
 
 def change_install_names():
